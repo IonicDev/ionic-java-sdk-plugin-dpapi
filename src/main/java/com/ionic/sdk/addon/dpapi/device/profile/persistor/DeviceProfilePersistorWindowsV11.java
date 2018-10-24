@@ -59,7 +59,7 @@ public class DeviceProfilePersistorWindowsV11 extends DeviceProfilePersistorBase
             activeProfile[0] = profiles.second();
             return profiles.first();
         } catch (IOException e) {
-            throw new IonicException(e);
+            throw new IonicException(SdkError.ISAGENT_OPENFILE, e);
         }
     }
 
@@ -85,7 +85,7 @@ public class DeviceProfilePersistorWindowsV11 extends DeviceProfilePersistorBase
             os.write(saveAllProfilesToJson(profiles, activeProfile, getCipher()));
             Stream.write(new File(getFilePath()), os.toByteArray());
         } catch (IOException e) {
-            throw new IonicException(e);
+            throw new IonicException(SdkError.ISAGENT_OPENFILE, e);
         }
     }
 
