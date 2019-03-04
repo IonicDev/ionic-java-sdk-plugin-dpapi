@@ -1,10 +1,10 @@
 package com.ionic.sdk.addon.dpapi.device.profile.persistor;
 
 import com.ionic.sdk.core.codec.Transcoder;
-import com.ionic.sdk.core.value.Value;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,10 +37,10 @@ public final class DeviceProfileSerializer {
         final Matcher matcher = Pattern.compile(HEADER_JSON_DELIMITER).matcher(text);
         if (matcher.find()) {
             this.header = text.substring(0, matcher.start());
-            this.body = Value.arraycopy(content, matcher.end(), content.length - matcher.end());
+            this.body = Arrays.copyOfRange(content, matcher.end(), content.length);
         } else {
             this.header = null;
-            this.body = Value.arraycopy(content, 0, content.length);
+            this.body = Arrays.copyOf(content, content.length);
         }
     }
 
@@ -55,7 +55,7 @@ public final class DeviceProfileSerializer {
      * @return the data of the serialized device profile
      */
     public byte[] getBody() {
-        return Value.arraycopy(body, 0, body.length);
+        return Arrays.copyOf(body, body.length);
     }
 
     /**
