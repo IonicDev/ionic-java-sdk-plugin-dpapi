@@ -48,7 +48,7 @@ public final class DeviceProfileUtils {
     public static String getHeaderVersion(final String header) throws IonicException {
         String version = null;
         if (header != null) {
-            final JsonObject jsonObject = JsonIO.readObject(header);
+            final JsonObject jsonObject = JsonIO.readObject(header, SdkError.ISAGENT_PARSEFAILED);
             final String fileTypeId = JsonSource.getString(jsonObject, HEADER_FIELD_FILE_TYPE_ID);
             final String format = JsonSource.getString(jsonObject, HEADER_FIELD_FORMAT);
             version = JsonSource.getString(jsonObject, HEADER_FIELD_VERSION);

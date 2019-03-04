@@ -10,10 +10,17 @@ import com.ionic.sdk.error.IonicException;
 import com.ionic.sdk.error.SdkData;
 import com.ionic.sdk.error.SdkError;
 
+import java.util.logging.Logger;
+
 /**
  * Windows Data Protection API implementation.
  */
 public final class DpapiCipher extends CipherAbstract {
+
+    /**
+     * Class scoped logger.
+     */
+    private static final Logger LOGGER = Logger.getLogger(DpapiCipher.class.getName());
 
     /**
      * The library object providing access to DPAPI.
@@ -26,6 +33,15 @@ public final class DpapiCipher extends CipherAbstract {
     private final String entropy;
 
     /**
+     * ID for AesGcmCipher class cipher.
+     */
+    private static final String ID = "dpapi";
+    /**
+     * Label for AesGcmCipher class cipher.
+     */
+    private static final String LABEL = "DP API Cipher";
+
+    /**
      * Constructor.
      *
      * @param entropy additional state (can be from the machine) used to secure the data
@@ -35,6 +51,16 @@ public final class DpapiCipher extends CipherAbstract {
         super(null);
         this.winDPAPI = getInstanceDPAPI();
         this.entropy = entropy;
+    }
+
+    @Override
+    public String getId() {
+        return ID;
+    }
+
+    @Override
+    public String getLabel() {
+        return LABEL;
     }
 
     /**
@@ -86,6 +112,7 @@ public final class DpapiCipher extends CipherAbstract {
         try {
             return WinDPAPI.newInstance(WinDPAPI.CryptProtectFlag.CRYPTPROTECT_UI_FORBIDDEN);
         } catch (InitializationFailedException e) {
+            LOGGER.severe(String.format("Exception attempting WinDPAPI newInstance: %s.", e.toString()));
             throw new IonicException(SdkError.ISAGENT_RESOURCE_NOT_FOUND, e);
         }
     }
@@ -107,6 +134,7 @@ public final class DpapiCipher extends CipherAbstract {
                     ? winDPAPI.protectData(bytesUnprotected)
                     : winDPAPI.protectData(bytesUnprotected, Transcoder.utf8().decode(entropy));
         } catch (WinAPICallFailedException e) {
+            LOGGER.severe(String.format("Exception attempting WinDPAPI protectData: %s.", e.toString()));
             throw new IonicException(SdkError.ISAGENT_RESOURCE_NOT_FOUND, e);
         }
     }
@@ -128,6 +156,7 @@ public final class DpapiCipher extends CipherAbstract {
                     ? winDPAPI.unprotectData(bytesProtected)
                     : winDPAPI.unprotectData(bytesProtected, Transcoder.utf8().decode(entropy));
         } catch (WinAPICallFailedException e) {
+            LOGGER.severe(String.format("Exception attempting WinDPAPI unprotectData: %s.", e.toString()));
             throw new IonicException(SdkError.ISAGENT_RESOURCE_NOT_FOUND, e);
         }
     }
