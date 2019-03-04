@@ -6,7 +6,7 @@
     <groupId>com.ionic</groupId>
     <artifactId>sdk-dpapi</artifactId>
     <packaging>jar</packaging>
-    <version>2.3.0</version>
+    <version>2.4.0</version>
     <name>sdk-dpapi</name>
     <url>https://dev.ionic.com</url>
     <!--project properties-->
@@ -20,7 +20,7 @@
         <dependency>
             <groupId>com.ionic</groupId>
             <artifactId>sdk</artifactId>
-            <version>2.3.0</version>
+            <version>2.4.0</version>
         </dependency>
         <dependency>
             <groupId>com.github.peter-gergely-horvath</groupId>
