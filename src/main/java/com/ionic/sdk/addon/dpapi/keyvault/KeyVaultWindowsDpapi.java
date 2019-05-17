@@ -1,22 +1,24 @@
 package com.ionic.sdk.addon.dpapi.keyvault;
 
 import com.ionic.sdk.addon.dpapi.cipher.DpapiCipher;
+import com.ionic.sdk.cipher.CipherAbstract;
+import com.ionic.sdk.core.value.Value;
 import com.ionic.sdk.core.vm.VM;
-import com.ionic.sdk.error.SdkError;
 import com.ionic.sdk.error.IonicException;
+import com.ionic.sdk.error.SdkError;
 import com.ionic.sdk.keyvault.KeyVaultBase;
 import com.ionic.sdk.keyvault.KeyVaultEncryptedFile;
 import com.ionic.sdk.keyvault.KeyVaultFileModTracker;
 import com.ionic.sdk.keyvault.KeyVaultKeyRecord;
 
 import java.io.File;
-import java.util.logging.Logger;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Platform specific Encrypted Key Vault for Windows - using DP API.
  */
-public class KeyVaultWindowsDpapi extends KeyVaultBase {
+public final class KeyVaultWindowsDpapi extends KeyVaultBase {
 
     /**
      * Private const for security level of DPAPI.
@@ -44,9 +46,15 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
     private static final String DEFAULT_KEYVAULT_FILENAME = "KeyVaultDpapi.dat";
 
     /**
-     * Filepath to save the DPAPI file, if null, use the default location.
+     * The cipher used to encrypt and decrypt the key vault file.
      */
-    private String overrideFilePath = null;
+    private final CipherAbstract cipher;
+
+    /**
+     * The user-specified filesystem path to which the KeyVault file should be saved.  If null, use
+     * the default location.
+     */
+    private String overrideFilePath;
 
     /**
      * File modification tracker lets us know if the file has been updated since the last time we accessed it.
@@ -59,34 +67,45 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
     private final Logger logger = Logger.getLogger(getClass().getName());
 
     /**
-     * Get the default folder for Key Vault files on the Windows Platform.
-     * '[UserHome]\AppData\LocalLow\IonicSecurity\KeyVaults'
-     * @return default file path
+     * Get the filesystem path used for persistence of the serialized form of this KeyVault instance.
+     * <p>
+     * For the DPAPI (Windows Platform) KeyVault implementation, a default path is used when left unspecified by
+     * the user:
+     * <ul><li>'[UserHome]\AppData\LocalLow\IonicSecurity\KeyVaults\KeyVaultDpapi.dat'</li></ul>
+     *
+     * @return the filesystem path used for persistence of the serialized form of this KeyVault instance
      */
-    private static String getDefaultKeyVaultFolderPath() {
+    private String getDefaultFilePath() {
         // determine IonicSecurity folder path
         final File folderUserHome = new File(System.getProperty(VM.Sys.USER_HOME));
 
         // determine KeyVaults folder path
         final File folderIonic = new File(folderUserHome, KEYVAULT_USER_FOLDER_IONIC);
-
-        return folderIonic.getAbsolutePath();
+        final File fileIonic = new File(folderIonic, DEFAULT_KEYVAULT_FILENAME);
+        return fileIonic.getPath();
     }
 
     /**
      * default constructor.
+     *
+     * @throws IonicException on failure of the underlying JRE cipher to initialize
      */
-    public KeyVaultWindowsDpapi() {
+    public KeyVaultWindowsDpapi() throws IonicException {
         super();
+        this.cipher = new DpapiCipher(null);
+        this.overrideFilePath = null;
     }
 
     /**
      * Constructor with specific filename.
+     *
      * @param filePath File path to store the encrypted key vault.
+     * @throws IonicException on failure of the underlying JRE cipher to initialize
      */
-    public KeyVaultWindowsDpapi(final String filePath) {
+    public KeyVaultWindowsDpapi(final String filePath) throws IonicException {
         super();
-        overrideFilePath = filePath;
+        this.cipher = new DpapiCipher(null);
+        this.overrideFilePath = filePath;
     }
 
     /**
@@ -94,7 +113,7 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
      * @return Vault ID constant
      */
     @Override
-    public final String getId() {
+    public String getId() {
         return DPAPI_VAULT_ID;
     }
 
@@ -103,7 +122,7 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
      * @return Vault label constant
      */
     @Override
-    public final String getLabel() {
+    public String getLabel() {
         return DPAPI_VAULT_LABEL;
     }
 
@@ -117,59 +136,31 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
     }
 
     /**
-     * Annoying private duplicate function because of the PublicShouldNotCallPublic rule.
-     * @return returns a default path, see the public version getDefaultFilePath()
+     * Get the file path used for key vault data storage.
+     * @return Returns the file path used for key vault data storage.
+     *         If a file path has not yet been set into the key vault, then the default
+     *         file path will be returned.
      */
-    private String internalGetDefaultFilePath() {
-
-        File ionicPath = new File(getDefaultKeyVaultFolderPath());
-        File ionicFile = new File(ionicPath, DEFAULT_KEYVAULT_FILENAME);
-        return ionicFile.getAbsolutePath();
-    }
-
-    /**
-     * Get the default file path used for key vault data storage.
-     * @return Returns the default file path used for key vault data storage, which is
-     *         '[UserHome]\AppData\LocalLow\IonicSecurity\KeyVaults\KeyVaultDpapi.dat'.
-     *         This file path will be used unless otherwise specified by ISKeyVaultWindowsDpapi::setFilePath().
-     */
-    @SuppressWarnings({"checkstyle:testPublicShouldNotCallPublic"})
-    public String getDefaultFilePath() {
-
-        return internalGetDefaultFilePath();
-    }
-
-    /**
-     * Annoying private duplicate function because of the PublicShouldNotCallPublic rule.
-     * @return returns the current path, see the public version getFilePath()
-     */
-    private String internalGetFilePath() {
-
-        // if an override path has not been set yet, then return the default file path
-        if (overrideFilePath == null || overrideFilePath.length() == 0) {
-            return internalGetDefaultFilePath();
-        } else {
-            return overrideFilePath;
-        }
+    private String getFilePathInternal() {
+        return (Value.isEmpty(overrideFilePath) ? getDefaultFilePath() : overrideFilePath);
     }
 
     /**
      * Get the file path used for key vault data storage.
      * @return Returns the file path used for key vault data storage.
      *         If a file path has not yet been set into the key vault, then the default
-     *         file path will be returned (ISKeyVaultWindowsDpapi::getDefaultFilePath()).
+     *         file path will be returned.
      */
     @SuppressWarnings({"checkstyle:testPublicShouldNotCallPublic"})
     public String getFilePath() {
-
-        return internalGetFilePath();
+        return getFilePathInternal();
     }
 
     /**
      * Set the file path used for key vault data storage.
      * Sets the file path used for key vault data storage. If no file path
      * is ever set, or if it is set to empty string, then the default file path
-     * will be used (ISKeyVaultWindowsDpapi::getDefaultFilePath()).
+     * will be used.
      * @param filePath The file path to use for key vault data storage.
      */
     public void setFilePath(final String filePath) {
@@ -181,9 +172,12 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
      */
     @Override
     public void cleanVaultStore() {
+        logger.fine("cleanVaultStore()");
+
         mapKeyRecords.clear();
         try {
-            File outputFile = new File(internalGetFilePath());
+            final String filePath = getFilePathInternal();
+            final File outputFile = new File(filePath);
             if (!outputFile.delete()) {
                 logger.info("Failed to delete the vault store file - may not exist yet.");
             }
@@ -195,14 +189,16 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
     /**
      * Function takes a map of key records and should move them from encrypted file persistent storage
      * into this map.
-     * @return mapKeyRecordsOut std::map of key id to key records where saved records should be stored
+     * @return mapKeyRecordsOut map of key id to key records where saved records should be stored
      * @throws IonicException If the load runs into IO errors.
      */
     @Override
     protected Map<String, KeyVaultKeyRecord> loadAllKeyRecords() throws IonicException {
+        logger.fine("loadAllKeyRecords()");
 
         // check to see if the input file exists
-        final File inputCipherFile = new File(internalGetFilePath());
+        final String filePath = getFilePathInternal();
+        final File inputCipherFile = new File(filePath);
 
         if (!inputCipherFile.exists()) {
             throw new IonicException(SdkError.ISKEYVAULT_RESOURCE_NOT_FOUND,
@@ -212,34 +208,33 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
 
         // record file information. if the file has not changed since our last
         // load or save operation, then we can skip this load operation
-        if (fileModificationPoint() == KeyVaultFileModTracker.Result.FILE_UNCHANGED) {
+        if (fileModificationPoint(filePath) == KeyVaultFileModTracker.Result.FILE_UNCHANGED) {
             throw new IonicException(SdkError.ISKEYVAULT_LOAD_NOT_NEEDED,
                                      "File has not changed since last load.");
         }
 
         // read encrypted file.
-        DpapiCipher cipher = new DpapiCipher(null);
-        KeyVaultEncryptedFile file = new KeyVaultEncryptedFile(DPAPI_VAULT_ID);
+        final KeyVaultEncryptedFile file = new KeyVaultEncryptedFile(DPAPI_VAULT_ID);
         return file.loadAllKeyRecordsFromFile(inputCipherFile.getAbsolutePath(), cipher);
     }
 
     /**
      * Function takes a map of key records and should move them into encrypted file persistent storage.
-     * @param  mapKeyRecords std::map of key id to key records that should be saved
+     * @param  mapKeyRecords map of key id to key records that should be saved
      * @return ISKEYVAULT_OK on success, or some other non-zero error code.
-     * @throws IonicException If the load runs into IO errors.
+     * @throws IonicException If the load runs into I/O errors.
      */
     @Override
     protected int saveAllKeyRecords(final Map<String, KeyVaultKeyRecord> mapKeyRecords) throws IonicException {
+        logger.fine("saveAllKeyRecords()");
 
-        logger.fine("KeyVaultWindowsDpapi, saveAllKeyRecords");
         // write encrypted file
-        DpapiCipher cipher = new DpapiCipher(null);
-        KeyVaultEncryptedFile file = new KeyVaultEncryptedFile(DPAPI_VAULT_ID);
-        file.saveAllKeyRecordsToFile(cipher, mapKeyRecords, internalGetFilePath());
+        final String filePath = getFilePathInternal();
+        final KeyVaultEncryptedFile file = new KeyVaultEncryptedFile(DPAPI_VAULT_ID);
+        file.saveAllKeyRecordsToFile(cipher, mapKeyRecords, filePath);
 
         // record file information
-        fileModificationPoint();
+        fileModificationPoint(filePath);
 
         return SdkError.ISKEYVAULT_OK;
     }
@@ -247,16 +242,16 @@ public class KeyVaultWindowsDpapi extends KeyVaultBase {
     /**
      * Function that uses the KeyVaultFileModTracker to determine whether the key vault has changed
      * outside the context of this instance of the vault.
-     * @return A KeyVaultFileModTracker.Result
+     *
+     * @param filePath the filesystem path associated with the KeyVault file
+     * @return A {@link KeyVaultFileModTracker.Result}
      */
-    private KeyVaultFileModTracker.Result fileModificationPoint() {
-
-        // if we dont have a file tracker object, or we have changed the file we are tracking, then
+    private KeyVaultFileModTracker.Result fileModificationPoint(final String filePath) {
+        // if we don't have a file tracker object, or we have changed the file we are tracking, then
         // create a new one here
-        if (fileModTracker == null
-            || !fileModTracker.getFilePath().equals(internalGetFilePath())) {
+        if ((fileModTracker == null) || !fileModTracker.getFilePath().equals(filePath)) {
 
-            fileModTracker = new KeyVaultFileModTracker(internalGetFilePath());
+            fileModTracker = new KeyVaultFileModTracker(filePath);
         }
 
         return fileModTracker.recordFileInfo();

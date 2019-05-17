@@ -10,11 +10,22 @@ import com.ionic.sdk.error.SdkData;
 import com.ionic.sdk.error.SdkError;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * DeviceProfilePersistorWindows brokers access to a persisted Ionic Secure Enrollment Profile, protected using the
  * Windows Data Protection API.
+ * <p>
+ * The Windows filesystem includes a user profile folder.  The default filesystem location of the Ionic Security SEP
+ * may be found in either the "Roaming" or "LocalLow" subfolders within the user profile folder.
+ * <ol>
+ * <li>New Secure Enrollment Profiles are persisted within the "Roaming" folder.</li>
+ * <li>If the "LocalLow" legacy filesystem location is already in use on a machine, that existing file will be
+ * updated.</li>
+ * </ol>
+ * <p>
+ * The file in use may also be updated using the {@link #setFilePath(String)} API.
  */
 public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorBase {
 
@@ -64,15 +75,23 @@ public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorB
      */
     @Override
     public List<DeviceProfile> loadAllProfiles(final String[] activeProfile) throws IonicException {
-        final byte[] bytes = DeviceUtils.read(new File(getFilePath()));
-        final DeviceProfileSerializer serializer = new DeviceProfileSerializer(bytes);
-        final String versionLoad = DeviceProfileUtils.getHeaderVersion(serializer.getHeader());
-        final boolean isV11 = DeviceProfilePersistorWindowsV11.HEADER_VALUE_VERSION.equals(versionLoad);
-        final DeviceProfilePersistorBase persistor = isV11
-                ? new DeviceProfilePersistorWindowsV11()
-                : new DeviceProfilePersistorWindowsV10();
-        persistor.setFilePath(getFilePath());
-        return persistor.loadAllProfiles(activeProfile);
+        final File file = new File(getFilePath());
+        final List<DeviceProfile> deviceProfiles;
+        if (file.exists()) {
+            final byte[] bytes = DeviceUtils.read(file);
+            final DeviceProfileSerializer serializer = new DeviceProfileSerializer(bytes);
+            final String versionLoad = DeviceProfileUtils.getHeaderVersion(serializer.getHeader());
+            final boolean isV11 = DeviceProfilePersistorWindowsV11.HEADER_VALUE_VERSION.equals(versionLoad);
+            final DeviceProfilePersistorBase persistor = isV11
+                    ? new DeviceProfilePersistorWindowsV11()
+                    : new DeviceProfilePersistorWindowsV10();
+            persistor.setFilePath(getFilePath());
+            deviceProfiles = persistor.loadAllProfiles(activeProfile);
+        } else {
+            activeProfile[0] = "";
+            deviceProfiles = new ArrayList<DeviceProfile>();
+        }
+        return deviceProfiles;
     }
 
     /**
@@ -111,7 +130,7 @@ public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorB
         final DeviceProfilePersistorBase persistor = isV11
                 ? new DeviceProfilePersistorWindowsV11()
                 : new DeviceProfilePersistorWindowsV10();
-        persistor.setFilePath(getFilePath());
+        persistor.setFilePath(file.getPath());
         persistor.saveAllProfiles(profiles, activeProfile);
     }
 
@@ -122,14 +141,26 @@ public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorB
      */
     static File getDefaultFile() {
         final File folderUserHome = new File(System.getProperty(VM.Sys.USER_HOME));
-        final File folderIonic = new File(folderUserHome, USER_FOLDER_IONIC);
-        return new File(folderIonic, FILENAME_SEP);
+        final File folderIonicLocalLow = new File(folderUserHome, USER_FOLDER_IONIC_LOCAL_LOW);
+        final File fileSEPLocalLow = new File(folderIonicLocalLow, FILENAME_SEP);
+        final File folderIonicRoaming = new File(folderUserHome, USER_FOLDER_IONIC_ROAMING);
+        final File fileSEPRoaming = new File(folderIonicRoaming, FILENAME_SEP);
+        final boolean isLocalLow = fileSEPLocalLow.exists();
+        final boolean isRoaming = fileSEPRoaming.exists();
+        // per SDK-2082:
+        // Check Roaming first, check LocalLow.  Remember where we found it for saving, or default to Roaming."
+        return isRoaming ? fileSEPRoaming : (isLocalLow ? fileSEPLocalLow : fileSEPRoaming);
     }
 
     /**
      * The folder, relative to USER PROFILE DIR, in which the default Ionic SEP is stored.
      */
-    private static final String USER_FOLDER_IONIC = "AppData/LocalLow/IonicSecurity";
+    private static final String USER_FOLDER_IONIC_LOCAL_LOW = "AppData/LocalLow/IonicSecurity";
+
+    /**
+     * The folder, relative to USER PROFILE DIR, in which the default Ionic SEP is stored.
+     */
+    private static final String USER_FOLDER_IONIC_ROAMING = "AppData/Roaming/Ionic Security";
 
     /**
      * The name of the file in USER_FOLDER_IONIC, in which the default Ionic SEP is stored.
