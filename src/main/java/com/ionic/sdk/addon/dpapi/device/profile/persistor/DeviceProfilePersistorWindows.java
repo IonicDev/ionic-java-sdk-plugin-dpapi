@@ -5,6 +5,7 @@ import com.ionic.sdk.core.vm.VM;
 import com.ionic.sdk.device.DeviceUtils;
 import com.ionic.sdk.device.profile.DeviceProfile;
 import com.ionic.sdk.device.profile.persistor.DeviceProfilePersistorBase;
+import com.ionic.sdk.device.profile.persistor.DeviceProfileSerializer;
 import com.ionic.sdk.error.IonicException;
 import com.ionic.sdk.error.SdkData;
 import com.ionic.sdk.error.SdkError;
@@ -30,18 +31,41 @@ import java.util.List;
 public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorBase {
 
     /**
+     * Flag indicating whether or not access to protected content should be scoped to protecting user.  If true,
+     * the DPAPI user profile key is to be used; otherwise, the DPAPI machine key will be used.
+     */
+    private final boolean isUser;
+
+    /**
      * The persistor format version preference specified by the user.
      */
     private String formatVersionOverride;
 
     /**
-     * Default constructor for DeviceProfilePersistorDPAPI.
+     * Default constructor for DeviceProfilePersistorDPAPI.  The DPAPI user profile key will be used for encryption
+     * operations.
      *
      * @throws IonicException on instantiation in the context of a non-Windows operating system
      */
     public DeviceProfilePersistorWindows() throws IonicException {
+        this(true);
+    }
+
+    /**
+     * Constructor for DeviceProfilePersistorDPAPI.
+     *
+     * @param isUser true if DPAPI user profile key is to be used; false if the DPAPI machine key is to be used
+     * @throws IonicException on instantiation in the context of a non-Windows operating system
+     */
+    public DeviceProfilePersistorWindows(final boolean isUser) throws IonicException {
         super(getDefaultFile().getPath(), null);
         SdkData.checkTrue(VM.isWindows(), SdkError.ISAGENT_NOTIMPLEMENTED, VM.getOsName());
+        this.isUser = isUser;
+    }
+
+    @Override
+    protected String getFormat() {
+        return FORMAT_DPAPI;
     }
 
     /**
@@ -81,10 +105,10 @@ public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorB
             final byte[] bytes = DeviceUtils.read(file);
             final DeviceProfileSerializer serializer = new DeviceProfileSerializer(bytes);
             final String versionLoad = DeviceProfileUtils.getHeaderVersion(serializer.getHeader());
-            final boolean isV11 = DeviceProfilePersistorWindowsV11.HEADER_VALUE_VERSION.equals(versionLoad);
+            final boolean isV11 = DeviceProfilePersistorWindowsV11.VERSION_1_1.equals(versionLoad);
             final DeviceProfilePersistorBase persistor = isV11
-                    ? new DeviceProfilePersistorWindowsV11()
-                    : new DeviceProfilePersistorWindowsV10();
+                    ? new DeviceProfilePersistorWindowsV11(isUser)
+                    : new DeviceProfilePersistorWindowsV10(isUser);
             persistor.setFilePath(getFilePath());
             deviceProfiles = persistor.loadAllProfiles(activeProfile);
         } else {
@@ -101,7 +125,7 @@ public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorB
      * is used by default.
      * <p>
      * To specify v1.1, use setFormatVersionOverride with parameter
-     * {@link DeviceProfilePersistorWindowsV11#HEADER_VALUE_VERSION}.
+     * {@link DeviceProfilePersistorWindowsV11#VERSION_1_1}.
      * <p>
      * Version 1.1 provides for a json type header that describes the file content.  The subsequent byte
      * stream is handled by the base implementation, {@link DeviceProfilePersistorBase}.
@@ -126,10 +150,13 @@ public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorB
         if (!Value.isEmpty(formatVersionOverride)) {
             versionSave = formatVersionOverride;
         }
-        final boolean isV11 = DeviceProfilePersistorWindowsV11.HEADER_VALUE_VERSION.equals(versionSave);
+        if (Value.isEmpty(versionSave)) {
+            versionSave = getVersion();
+        }
+        final boolean isV11 = DeviceProfilePersistorWindowsV11.VERSION_1_1.equals(versionSave);
         final DeviceProfilePersistorBase persistor = isV11
-                ? new DeviceProfilePersistorWindowsV11()
-                : new DeviceProfilePersistorWindowsV10();
+                ? new DeviceProfilePersistorWindowsV11(isUser)
+                : new DeviceProfilePersistorWindowsV10(isUser);
         persistor.setFilePath(file.getPath());
         persistor.saveAllProfiles(profiles, activeProfile);
     }
@@ -166,4 +193,9 @@ public final class DeviceProfilePersistorWindows extends DeviceProfilePersistorB
      * The name of the file in USER_FOLDER_IONIC, in which the default Ionic SEP is stored.
      */
     private static final String FILENAME_SEP = "DeviceProfiles.dat";
+
+    /**
+     * Ionic Secure Enrollment Profile type header field value.
+     */
+    public static final String FORMAT_DPAPI = "dpapi";
 }

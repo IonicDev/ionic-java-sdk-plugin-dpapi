@@ -17,13 +17,29 @@ import com.ionic.sdk.error.SdkError;
 public class DeviceProfilePersistorWindowsV10 extends DeviceProfilePersistorBase {
 
     /**
-     * Default constructor for DeviceProfilePersistorDPAPI.
+     * Default constructor for DeviceProfilePersistorDPAPI.  The DPAPI user profile key will be used for encryption
+     * operations.
      *
      * @throws IonicException on instantiation in the context of a non-Windows operating system
      */
     public DeviceProfilePersistorWindowsV10() throws IonicException {
+        this(true);
+    }
+
+    /**
+     * Constructor for DeviceProfilePersistorDPAPI.
+     *
+     * @param isUser true if DPAPI user profile key is to be used; false if the DPAPI machine key is to be used
+     * @throws IonicException on instantiation in the context of a non-Windows operating system
+     */
+    public DeviceProfilePersistorWindowsV10(final boolean isUser) throws IonicException {
         super(DeviceProfilePersistorWindows.getDefaultFile().getPath(),
-                new DpapiCipher(WindowsRegistry.getMachineGuid()));
+                new DpapiCipher(WindowsRegistry.getMachineGuid(), isUser));
         SdkData.checkTrue(VM.isWindows(), SdkError.ISAGENT_NOTIMPLEMENTED, VM.getOsName());
+    }
+
+    @Override
+    protected final String getFormat() {
+        return DeviceProfilePersistorWindows.FORMAT_DPAPI;
     }
 }

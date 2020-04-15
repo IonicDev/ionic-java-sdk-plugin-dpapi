@@ -7,6 +7,7 @@ import com.ionic.sdk.core.io.Stream;
 import com.ionic.sdk.core.vm.VM;
 import com.ionic.sdk.device.profile.DeviceProfile;
 import com.ionic.sdk.device.profile.persistor.DeviceProfilePersistorBase;
+import com.ionic.sdk.device.profile.persistor.DeviceProfileSerializer;
 import com.ionic.sdk.error.IonicException;
 import com.ionic.sdk.error.SdkData;
 import com.ionic.sdk.error.SdkError;
@@ -24,13 +25,29 @@ import java.util.List;
 public class DeviceProfilePersistorWindowsV11 extends DeviceProfilePersistorBase {
 
     /**
-     * Default constructor for DeviceProfilePersistorDPAPI.
+     * Default constructor for DeviceProfilePersistorDPAPI.  The DPAPI user profile key will be used for encryption
+     * operations.
      *
      * @throws IonicException on instantiation in the context of a non-Windows operating system
      */
     public DeviceProfilePersistorWindowsV11() throws IonicException {
-        super(DeviceProfilePersistorWindows.getDefaultFile().getPath(), new DpapiCipher(null));
+        this(true);
+    }
+
+    /**
+     * Constructor for DeviceProfilePersistorDPAPI.
+     *
+     * @param isUser true if DPAPI user profile key is to be used; false if the DPAPI machine key is to be used
+     * @throws IonicException on instantiation in the context of a non-Windows operating system
+     */
+    public DeviceProfilePersistorWindowsV11(final boolean isUser) throws IonicException {
+        super(DeviceProfilePersistorWindows.getDefaultFile().getPath(), new DpapiCipher(null, isUser));
         SdkData.checkTrue(VM.isWindows(), SdkError.ISAGENT_NOTIMPLEMENTED, VM.getOsName());
+    }
+
+    @Override
+    protected final String getFormat() {
+        return DeviceProfilePersistorWindows.FORMAT_DPAPI;
     }
 
     /**
@@ -53,7 +70,7 @@ public class DeviceProfilePersistorWindowsV11 extends DeviceProfilePersistorBase
             final DeviceProfileSerializer serializer = new DeviceProfileSerializer(bytes);
             SdkData.checkTrue((serializer.getHeader() != null), SdkError.ISAGENT_ERROR, JsonObject.class.getName());
             final String version = DeviceProfileUtils.getHeaderVersion(serializer.getHeader());
-            SdkData.checkTrue(HEADER_VALUE_VERSION.equals(version), SdkError.ISAGENT_ERROR, version);
+            SdkData.checkTrue(VERSION_1_1.equals(version), SdkError.ISAGENT_ERROR, version);
             final Tuple<List<DeviceProfile>, String> profiles =
                     loadAllProfilesFromJson(serializer.getBody(), getCipher());
             activeProfile[0] = profiles.second();
@@ -77,7 +94,7 @@ public class DeviceProfilePersistorWindowsV11 extends DeviceProfilePersistorBase
     @Override
     public final void saveAllProfiles(
             final List<DeviceProfile> profiles, final String activeProfile) throws IonicException {
-        final String header = DeviceProfileUtils.createHeader(HEADER_VALUE_VERSION);
+        final String header = DeviceProfileUtils.createHeader(VERSION_1_1);
         try {
             ByteArrayOutputStream os = new ByteArrayOutputStream();
             os.write(Transcoder.utf8().decode(header));
@@ -88,9 +105,4 @@ public class DeviceProfilePersistorWindowsV11 extends DeviceProfilePersistorBase
             throw new IonicException(SdkError.ISAGENT_OPENFILE, e);
         }
     }
-
-    /**
-     * Ionic Secure Enrollment Profile type header field value.
-     */
-    public static final String HEADER_VALUE_VERSION = "1.1";
 }
