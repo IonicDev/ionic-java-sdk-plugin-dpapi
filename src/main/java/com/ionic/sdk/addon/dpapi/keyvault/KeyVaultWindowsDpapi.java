@@ -92,7 +92,7 @@ public final class KeyVaultWindowsDpapi extends KeyVaultBase {
      */
     public KeyVaultWindowsDpapi() throws IonicException {
         super();
-        this.cipher = new DpapiCipher(null);
+        this.cipher = new DpapiCipher(null, true);
         this.overrideFilePath = null;
     }
 
@@ -104,7 +104,7 @@ public final class KeyVaultWindowsDpapi extends KeyVaultBase {
      */
     public KeyVaultWindowsDpapi(final String filePath) throws IonicException {
         super();
-        this.cipher = new DpapiCipher(null);
+        this.cipher = new DpapiCipher(null, true);
         this.overrideFilePath = filePath;
     }
 

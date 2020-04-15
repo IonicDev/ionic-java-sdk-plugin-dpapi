@@ -14,6 +14,12 @@ import java.util.logging.Logger;
 
 /**
  * Windows Data Protection API implementation.
+ * <p>
+ * The Data Protection API (DPAPI) is a service that is provided by the Windows operating system. It provides
+ * protection using the user or machine credentials to encrypt or decrypt data.
+ * <p>
+ * When the machine key is used to encrypt data, decryption is only possible on the same machine.  When the user
+ * profile key is used to encrypt data, decryption is only possible in the context of the same user profile.
  */
 public final class DpapiCipher extends CipherAbstract {
 
@@ -42,14 +48,25 @@ public final class DpapiCipher extends CipherAbstract {
     private static final String LABEL = "DP API Cipher";
 
     /**
-     * Constructor.
+     * Constructor.  The DPAPI user profile key will be used for encryption operations.
      *
      * @param entropy additional state (can be from the machine) used to secure the data
      * @throws IonicException on use when on non-Windows OS
      */
     public DpapiCipher(final String entropy) throws IonicException {
+        this(entropy, true);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param entropy additional state (can be from the machine) used to secure the data
+     * @param isUser  true if DPAPI user profile key is to be used; false if the DPAPI machine key is to be used
+     * @throws IonicException on use when on non-Windows OS
+     */
+    public DpapiCipher(final String entropy, final boolean isUser) throws IonicException {
         super(null);
-        this.winDPAPI = getInstanceDPAPI();
+        this.winDPAPI = getInstanceDPAPI(isUser);
         this.entropy = entropy;
     }
 
@@ -105,12 +122,16 @@ public final class DpapiCipher extends CipherAbstract {
     /**
      * Retrieve the library object used to access the DPAPI function.
      *
+     * @param isUser true if DPAPI user profile key is to be used; otherwise, the DPAPI machine key will be used
      * @return an object reference which exposes the DPAPI functionality
      * @throws IonicException on failure to acquire the reference
      */
-    private static WinDPAPI getInstanceDPAPI() throws IonicException {
+    private static WinDPAPI getInstanceDPAPI(final boolean isUser) throws IonicException {
         try {
-            return WinDPAPI.newInstance(WinDPAPI.CryptProtectFlag.CRYPTPROTECT_UI_FORBIDDEN);
+            return isUser
+                    ? WinDPAPI.newInstance(WinDPAPI.CryptProtectFlag.CRYPTPROTECT_UI_FORBIDDEN)
+                    : WinDPAPI.newInstance(WinDPAPI.CryptProtectFlag.CRYPTPROTECT_UI_FORBIDDEN,
+                    WinDPAPI.CryptProtectFlag.CRYPTPROTECT_LOCAL_MACHINE);
         } catch (InitializationFailedException e) {
             LOGGER.severe(String.format("Exception attempting WinDPAPI newInstance: %s.", e.toString()));
             throw new IonicException(SdkError.ISAGENT_RESOURCE_NOT_FOUND, e);
