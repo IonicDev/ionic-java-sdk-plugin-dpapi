@@ -151,7 +151,6 @@ public final class KeyVaultWindowsDpapi extends KeyVaultBase {
      *         If a file path has not yet been set into the key vault, then the default
      *         file path will be returned.
      */
-    @SuppressWarnings({"checkstyle:testPublicShouldNotCallPublic"})
     public String getFilePath() {
         return getFilePathInternal();
     }
