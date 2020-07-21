@@ -72,7 +72,7 @@ public class DeviceProfilePersistorWindowsV11 extends DeviceProfilePersistorBase
             final String version = DeviceProfileUtils.getHeaderVersion(serializer.getHeader());
             SdkData.checkTrue(VERSION_1_1.equals(version), SdkError.ISAGENT_ERROR, version);
             final Tuple<List<DeviceProfile>, String> profiles =
-                    loadAllProfilesFromJson(serializer.getBody(), getCipher());
+                    loadAllProfilesFromJson(getFilePath(), serializer.getBody(), getCipher());
             activeProfile[0] = profiles.second();
             return profiles.first();
         } catch (IOException e) {
