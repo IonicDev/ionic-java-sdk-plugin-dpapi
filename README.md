@@ -5,7 +5,7 @@ provides data protection functionality by using user or machine credentials to e
   
 This plugin library code depends on the Ionic Java SDK.
 * [source code (github.com)](https://github.com/IonicDev/ionic-java-sdk)
-* [distributables (repo.maven.apache.org)](https://repo.maven.apache.org/maven2/com/ionic/ionic-sdk/2.7.0/)
+* [distributables (repo.maven.apache.org)](https://repo.maven.apache.org/maven2/com/ionic/ionic-sdk/)
 
 ### Points of Interest
 * ```DeviceProfilePersistorWindows``` is an implementation of ```ProfilePersistor``` allowing for filesystem storage 
